@@ -177,20 +177,10 @@ class MultivariateGaussian:
         """
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `pdf` function")
-        d = X[:, np.newaxis, :] - self.mu_
-        # inner = np.sum(d.dot(inv(self.cov_)) * d, axis=2).flatten()
-        # print((1 / np.sqrt((2 * np.pi) ** len(X) * det(self.cov_))) * np.exp(-0.5 * inner))
+        d = X.shape[1]
+        inner = np.einsum("ij,ji->i", (X - self.mu_) @ inv(self.cov_), ((X - self.mu_).transpose()))
+        return (1/np.sqrt((2*np.pi) ** d * det(self.cov_))) * np.exp(-0.5*inner)
 
-        # inner = np.einsum("bi,ij,bj->b", X - self.mu_, inv(self.cov_), X - self.mu_)
-        # print((1 / np.sqrt((2 * np.pi) ** len(X) * det(self.cov_))) * np.exp(-0.5 * inner))
-
-        # mine:
-        # inner = np.einsum("ij,ji->i", (X - self.mu_) @ inv(self.cov_), ((X - self.mu_).transpose()))
-        # return (1 / np.sqrt((2 * np.pi) ** len(X) * det(self.cov_))) * np.exp(-0.5 * inner)
-
-        mahalanobis = np.einsum("bi,ij,bj->b", X - self.mu_, inv(self.cov_), X - self.mu_)
-
-        return (1 / np.sqrt((2 * np.pi) ** len(X) * det(self.cov_))) * np.exp(-0.5 * mahalanobis)
 
     @staticmethod
     def log_likelihood(mu: np.ndarray, cov: np.ndarray, X: np.ndarray) -> float:
@@ -214,18 +204,4 @@ class MultivariateGaussian:
         m = len(X)
         d = X.shape[1]
         inner = np.einsum("ij,ji->", (X - mu) @ inv(cov), ((X - mu).transpose()))
-        # TODO another option: np.einsum("dn,nl,ld", X-mu, inv(cov), (X-mu).transpose())
         return -0.5*(m*d*np.log(2*np.pi) + m*slogdet(cov)[1] + inner)
-
-
-if __name__ == '__main__':
-    cov = np.array(
-        [[1, 0.2, 0, 0.5],
-         [0.2, 2, 0, 0],
-         [0, 0, 1, 0],
-         [0.5, 0, 0, 1]])
-    samples = np.random.multivariate_normal(mean=[0, 0, 4, 0], cov=cov, size=1000)
-    estimator = MultivariateGaussian().fit(samples)
-    print("Estimated expectation: \n", estimator.mu_, "\n")
-    print("Estimated covariance matrix: \n", estimator.cov_)
-    estimator.pdf(samples)
