@@ -12,7 +12,7 @@ def test_univariate_gaussian():
     samples = np.random.normal(loc=mu, scale=var, size=1000)
 
     estimator = UnivariateGaussian().fit(samples)
-    print((estimator.mu_, estimator.var_))
+    print("({}, {})".format(np.round(estimator.mu_, 3), np.round(estimator.var_, 3)))
 
     # Question 2 - Empirically showing sample mean is consistent
     expectations = [abs(mu - UnivariateGaussian().fit(samples[:n]).mu_) for n in range(10, 1010, 10)]
@@ -41,7 +41,7 @@ def test_univariate_gaussian():
     fig_1.update_yaxes(
         title="Absolute distance between est. and true value of expectation",
         title_font_family="Times New Roman")
-    fig_1.show()
+    fig_1.write_html("Q2.html")
 
     # Question 3 - Plotting Empirical PDF of fitted model
     pdfs = estimator.pdf(samples)
@@ -70,7 +70,7 @@ def test_univariate_gaussian():
     fig_2.update_yaxes(
         title="Empirical PDF",
         title_font_family="Times New Roman")
-    fig_2.show()
+    fig_2.write_html("Q3.html")
 
 
 def test_multivariate_gaussian():
@@ -83,8 +83,8 @@ def test_multivariate_gaussian():
     samples = np.random.multivariate_normal(mean=[0, 0, 4, 0], cov=cov, size=1000)
     estimator = MultivariateGaussian().fit(samples)
     pdfs = estimator.pdf(samples)
-    print("Estimated expectation:", estimator.mu_, sep="\n", end="\n\n")
-    print("Estimated covariance matrix:", estimator.cov_, sep="\n", end="\n\n")
+    print("Estimated expectation:", np.round(estimator.mu_, 3), sep="\n", end="\n\n")
+    print("Estimated covariance matrix:", np.round(estimator.cov_, 3), sep="\n", end="\n\n")
 
     # Question 5 - Likelihood evaluation
     f_values = np.linspace(-10, 10, 200)
@@ -107,7 +107,7 @@ def test_multivariate_gaussian():
         xaxis={"tickmode": "linear", "tick0": "0", "dtick": "1"},
         yaxis={"tickmode": "linear", "tick0": "0", "dtick": "2"}
     )
-    heatmap.show()
+    heatmap.write_html("Q5.html")
 
     # Question 6 - Maximum likelihood
     argmax_row, argmax_col = np.unravel_index(m.argmax(), m.shape)
