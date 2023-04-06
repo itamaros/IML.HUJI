@@ -1,12 +1,13 @@
 from IMLearn.utils import split_train_test
 from IMLearn.learners.regressors import LinearRegression
 
-from typing import NoReturn
+from typing import NoReturn, Optional
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
+
 pio.templates.default = "simple_white"
 
 
@@ -26,7 +27,15 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     Post-processed design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    raise NotImplementedError()
+    # dropping columns
+    X = X.drop('date', axis=1)
+    X = X.drop('id', axis=1)
+    X = X[X['sqft_lot15'] > 0]
+
+    # one-hot encoding for zipcodes
+    one_hot_zipcode_df = pd.get_dummies(X['zipcode'], prefix='zip')
+    X = X.join(one_hot_zipcode_df)
+    X = X.drop('zipcode', axis=1)
 
 
 def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") -> NoReturn:
@@ -54,10 +63,12 @@ if __name__ == '__main__':
     df = pd.read_csv("../datasets/house_prices.csv")
 
     # Question 1 - split data into train and test sets
-    raise NotImplementedError()
+    y = df['price']
+    X = df.drop('price', axis=1)
+    train_X, train_y, test_X, test_y = split_train_test(X, y, 0.75)
 
     # Question 2 - Preprocessing of housing prices dataset
-    raise NotImplementedError()
+    preprocess_data(train_X, train_y)
 
     # Question 3 - Feature evaluation with respect to response
     raise NotImplementedError()
