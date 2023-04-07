@@ -59,3 +59,15 @@ def confusion_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         while value `j` vas found in vector `b`
     """
     raise NotImplementedError()
+
+
+if __name__ == '__main__':  # TODO remove
+    np.random.seed(0)
+    # X = np.arange(1, 10, 1).reshape(3, 3)
+    X = pd.DataFrame(np.arange(1, 100, 1).reshape(33, 3))
+    y = pd.Series(np.arange(1, 100, 1)).transpose()
+    a, b, c, d = split_train_test(X, y)
+    print("train X:\n", a.shape, end="\n\n")
+    print("train y:\n", b.shape, end="\n\n")
+    print("test X:\n", c.shape, end="\n\n")
+    print("test y:\n", d.shape, end="\n\n")
