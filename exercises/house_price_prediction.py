@@ -30,32 +30,22 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     # Only if in train
     if y is not None:
         X.loc[:, 'price'] = y.loc[:]
-        # X = X[X['sqft_lot15'] > 0]
-        X.loc[:] = X.loc[X['sqft_lot15'] > 0]
-        # X.dropna(inplace=True)
-        X.drop_duplicates(subset=['id'], inplace=True)
 
     # FEATURE ENGINEERING:
-    # one-hot encoding for zipcodes
-    one_hot_zipcode_df = pd.get_dummies(X['zipcode'], prefix='zip')
+    one_hot_zipcode_df = pd.get_dummies(X['zipcode'], prefix='zipcode')
     X = X.join(one_hot_zipcode_df)
-    # age of the house
     X.loc[:, 'date'] = pd.to_datetime(X['date'], format='%Y%m%dT000000', errors='coerce')
     X.loc[:, 'house_age_yr'] = X['date'].dt.year - X['yr_built']
-    # square footage ratio
     X.loc[:, 'sqft_ratio'] = X['sqft_living'] / X['sqft_lot']
-    # distance from city center
     X.loc[:, 'dist_from_center'] = X.apply(lambda row: dist_from_reference(row['lat'], row['long']), axis=1)
-    # bathroom to bedroom ratio
     X.loc[:, 'bath_bed_ratio'] = X['bathrooms'] / X['bedrooms']
     X.loc[:, 'bath_bed_ratio'] = X.loc[:, 'bath_bed_ratio'].replace([np.inf, -np.inf], np.nan)
     X.loc[:, 'bath_bed_ratio'] = X['bath_bed_ratio'].fillna(0)
-    # was house renovated
     X.loc[:, 'is_renovated'] = X['yr_renovated'].apply(lambda row: 1 if (row != 0.0) else 0)
-    # last column drops
-    X.drop(['date', 'id', 'lat', 'long', 'zipcode', 'yr_renovated'], axis=1, inplace=True)
 
-    X = X.replace([np.inf, -np.inf], np.nan).dropna()
+    X.drop(['date', 'id', 'lat', 'long', 'zipcode'], axis=1, inplace=True)  # non-linear data
+    X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'condition', 'yr_built', 'sqft_lot15', 'house_age_yr',
+            'sqft_ratio'], axis=1, inplace=True)  # just irrelevant features
 
     if y is not None:
         return X.drop('price', axis=1), X.loc[:, 'price']
@@ -115,23 +105,32 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    X = X.loc[:, ~(X.columns.str.contains('^zip_', case=False) | X.columns.str.contains('^is_renovated', case=False))]
+    X = X.loc[:, ~(X.columns.str.contains('^zipcode_', case=False) |
+                   X.columns.str.contains('^is_renovated', case=False))]
     for feature in X:
         p_corr = np.cov(X[feature], y)[0][1] / (np.std(X[feature]) * np.std(y))
         fig = px.scatter(pd.DataFrame({'x': X[feature], 'y': y}), x='x', y='y',
                          labels={'x': f'{feature} value', 'y': 'Response values'}, trendline='ols',
                          trendline_color_override='black')
         _config_plot(fig, feature, p_corr)
-        # if abs(p_corr) >= 0.4:
-        #     print("good: ", feature, np.round(p_corr, 3))
-        # if abs(p_corr) <= 0.1:
-        #     print("bad: ", feature, np.round(p_corr, 3))
-        # fig.write_html(output_path + f"/pearson corr. {feature}" + ".html")
+        # pio.write_image(fig, output_path + f"/pearson corr. {feature}" + ".html")
+        pio.write_html(fig, output_path + f"/pearson corr. {feature}" + ".html")
+
+
+def clean_df(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.dropna().drop_duplicates()
+    # weed out non-plausible samples
+    for feature in ['sqft_living', 'sqft_lot', 'yr_built', 'price']:
+        df = df[df[feature] > 0]
+    for feature in ['bathrooms', 'floors', 'sqft_basement', 'yr_renovated']:
+        df = df[df[feature] >= 0]
+    return df
 
 
 if __name__ == '__main__':
     np.random.seed(0)
     df = pd.read_csv("../datasets/house_prices.csv")
+    df = clean_df(df)
 
     # Question 1 - split data into train and test sets
     y = df['price']
@@ -140,9 +139,10 @@ if __name__ == '__main__':
 
     # Question 2 - Preprocessing of housing prices dataset
     train_X, train_y = preprocess_data(train_X, train_y)
+    test_X = preprocess_data(test_X)
 
     # Question 3 - Feature evaluation with respect to response
-    feature_evaluation(train_X, train_y)
+    feature_evaluation(train_X, train_y, "p_corr")
 
     # Question 4 - Fit model over increasing percentages of the overall training data
     # For every percentage p in 10%, 11%, ..., 100%, repeat the following 10 times:
@@ -151,4 +151,37 @@ if __name__ == '__main__':
     #   3) Test fitted model over test set
     #   4) Store average and variance of loss over test set
     # Then plot average loss as function of training size with error ribbon of size (mean-2*std, mean+2*std)
-    raise NotImplementedError()
+    index = list(range(10, 101))
+    loss_matrix = np.zeros((len(index), 10))
+    for i, p in enumerate(index):
+        for j in range(loss_matrix.shape[1]):
+            sample_X = train_X.sample(frac=p / 100.0)
+            sample_y = train_y.loc[sample_X.index]
+            fitted_model = LinearRegression().fit(sample_X, sample_y)
+            loss_matrix[i, j] = fitted_model.loss(test_X, test_y)
+
+    loss_avg, loss_var = loss_matrix.mean(axis=1), loss_matrix.std(axis=1)
+
+    fig = go.Figure([go.Scatter(x=index, y=loss_avg, mode='markers+lines', marker=dict(color='black')),
+                     go.Scatter(x=index, y=loss_avg - 2 * loss_var, fill=None, mode='lines',
+                                line=dict(color='lightgrey')),
+                     go.Scatter(x=index, y=loss_avg + 2 * loss_var, fill='tonexty', mode='lines',
+                                line=dict(color='lightgrey'))],
+                    layout=go.Layout(title='MSE over test set, as a function of train set size',
+
+                                     xaxis=dict(title='Percentage of training set used'),
+                                     yaxis=dict(title='MSE over test set'),
+                                     showlegend=False,
+                                     template='simple_white'))
+    fig.update_layout(
+        title={
+            "x": 0.5,
+            "y": 0.95},
+        template="simple_white",
+        font_color="black",
+        title_font_family="Helvetica",
+        title_font_color="black",
+    )
+    fig.show()
+    pio.write_html(fig, 'MSE_loss.html')
+    # pio.write_image(fig, 'MSE_loss.html')
