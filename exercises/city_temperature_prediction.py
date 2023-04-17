@@ -99,3 +99,16 @@ if __name__ == '__main__':
     """
 
     # Question 5 - Evaluating fitted model on different countries
+    israel_fitted = PolynomialFitting(k=3).fit(israel_df.DayOfYear, israel_df.Temp)
+    countries = ['South Africa', 'The Netherlands', 'Jordan']
+
+    all_losses = df.groupby('Country').apply(lambda x: np.round(israel_fitted.loss(x.DayOfYear, x.Temp), 2))
+    countries_losses = pd.DataFrame({'Country': all_losses.index, 'Loss': all_losses.values})
+    countries_losses = countries_losses[countries_losses['Country'].isin(countries)].reset_index(drop=True)
+
+    fig_5 = px.bar(countries_losses,
+                   x='Country', y='Loss',
+                   text='Loss',
+                   title='Loss of Other Countries over Israel-Fitted model',
+                   color='Country')
+    pio.write_image(fig=fig_5, engine='orca', file='other_countries_loss_using_israel_fitted.png')
