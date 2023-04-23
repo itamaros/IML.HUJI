@@ -30,22 +30,27 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     # Only if in train
     if y is not None:
         X.loc[:, 'price'] = y.loc[:]
+        # remove outliers
+        X = X.drop(X[X.id == 0.0].index)
+        X = X.dropna().drop_duplicates()
+        X = X.drop(X[X.bedrooms > 10].index)
+        X = X.drop(X[X.yr_built < 0].index)
+        X = X.drop(X[X.sqft_living > 10000].index)
+        X = X.drop(X[X.sqft_lot > 100000].index)
+        X = X.drop(X[X.sqft_lot < 0].index)
 
     # FEATURE ENGINEERING:
     one_hot_zipcode_df = pd.get_dummies(X['zipcode'], prefix='zipcode')
     X = X.join(one_hot_zipcode_df)
-    X.loc[:, 'date'] = pd.to_datetime(X['date'], format='%Y%m%dT000000', errors='coerce')
-    X.loc[:, 'house_age_yr'] = X['date'].dt.year - X['yr_built']
-    X.loc[:, 'sqft_ratio'] = X['sqft_living'] / X['sqft_lot']
-    X.loc[:, 'dist_from_center'] = X.apply(lambda row: dist_from_reference(row['lat'], row['long']), axis=1)
+    X.loc[:, 'dist_from_ref'] = X.apply(lambda row: dist_from_reference(row['lat'], row['long']), axis=1)
+    X.loc[:, 'dist_from_ref'] = X.apply(lambda row: dist_from_reference(row['lat'], row['long']), axis=1)
     X.loc[:, 'bath_bed_ratio'] = X['bathrooms'] / X['bedrooms']
     X.loc[:, 'bath_bed_ratio'] = X.loc[:, 'bath_bed_ratio'].replace([np.inf, -np.inf], np.nan)
     X.loc[:, 'bath_bed_ratio'] = X['bath_bed_ratio'].fillna(0)
-    X.loc[:, 'is_renovated'] = X['yr_renovated'].apply(lambda row: 1 if (row != 0.0) else 0)
-
     X.drop(['date', 'id', 'lat', 'long', 'zipcode'], axis=1, inplace=True)  # non-linear data
-    X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'condition', 'yr_built', 'sqft_lot15', 'house_age_yr',
-            'sqft_ratio'], axis=1, inplace=True)  # just irrelevant features
+    # X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'condition', 'yr_built', 'sqft_lot15'],
+    X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'yr_built', 'sqft_lot15'],
+           axis=1, inplace=True)  # non-correlating features
 
     if y is not None:
         return X.drop('price', axis=1), X.loc[:, 'price']
@@ -53,13 +58,16 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
 
 
 def dist_from_reference(lat, long):
-    ref_lat, ref_long = 47.612619936344856, -122.20516535787827  # Bellevue Downtown Park
+    """
+    Haversine distance from reference point (Bellevue Downtown Park, Seattle)
+    """
+    ref_lat, ref_long = 47.612619936344856, -122.20516535787827  # Bellevue Downtown Park lat&long
     R = 6371  # radius of the Earth in km
     phi1 = np.radians(lat)
     phi2 = np.radians(ref_lat)
     delta_phi = np.radians(ref_lat - lat)
     delta_lambda = np.radians(ref_long - long)
-    a = np.sin(delta_phi / 2)**2 + np.cos(phi1) * np.cos(phi2) * np.sin(delta_lambda / 2)**2
+    a = np.sin(delta_phi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(delta_lambda / 2) ** 2
     c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
     d = R * c
     return d
@@ -67,16 +75,16 @@ def dist_from_reference(lat, long):
 
 def _config_plot(fig, feature, cov):
     fig.update_traces(
-    marker=dict(
-        size=5,
-        symbol="diamond",
-        color="#0033cc",
-        opacity=0.7,
-        line=dict(
-            color='white',
-            width=0.2
+        marker=dict(
+            size=5,
+            symbol="diamond",
+            color="#0033cc",
+            opacity=0.7,
+            line=dict(
+                color='white',
+                width=0.2
+            )
         )
-    )
     )
     fig.update_layout(
         title={"text": f"Pearson correlation between {feature} and Response. <br>Pearson Correlation: "
@@ -113,25 +121,22 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
                          labels={'x': f'{feature} value', 'y': 'Response values'}, trendline='ols',
                          trendline_color_override='black')
         _config_plot(fig, feature, p_corr)
-        # pio.write_image(fig, output_path + f"/pearson corr. {feature}" + ".html")
-        pio.write_html(fig, output_path + f"/pearson corr. {feature}" + ".html")
+        # pio.write_html(fig, output_path + f"/pearson corr. {feature}" + ".html")  # all features
+        if feature in ['sqft_living', 'condition']:  # the features I chose to explain about
+            pio.write_image(fig, output_path + f"/pearson corr. {feature}" + ".png", engine='orca')
 
 
 def clean_df(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.dropna().drop_duplicates()
-    # weed out non-plausible samples
-    for feature in ['sqft_living', 'sqft_lot', 'yr_built', 'price']:
-        df = df[df[feature] > 0]
-    for feature in ['bathrooms', 'floors', 'sqft_basement', 'yr_renovated']:
-        df = df[df[feature] >= 0]
+    # remove irrelevant samples
+    df = df.dropna(subset=['price'])
+    df = df.drop(df[df.price < 0].index)
     return df
 
 
 if __name__ == '__main__':
     np.random.seed(0)
     df = pd.read_csv("../datasets/house_prices.csv")
-    df = clean_df(df)
-
+    # df = clean_df(df)
     # Question 1 - split data into train and test sets
     y = df['price']
     X = df.drop('price', axis=1)
@@ -140,6 +145,8 @@ if __name__ == '__main__':
     # Question 2 - Preprocessing of housing prices dataset
     train_X, train_y = preprocess_data(train_X, train_y)
     test_X = preprocess_data(test_X)
+    test_X = test_X.reindex(columns=train_X.columns, fill_value=0)
+
 
     # Question 3 - Feature evaluation with respect to response
     feature_evaluation(train_X, train_y, "p_corr")
@@ -182,6 +189,4 @@ if __name__ == '__main__':
         title_font_family="Helvetica",
         title_font_color="black",
     )
-    fig.show()
     pio.write_html(fig, 'MSE_loss.html')
-    # pio.write_image(fig, 'MSE_loss.html')

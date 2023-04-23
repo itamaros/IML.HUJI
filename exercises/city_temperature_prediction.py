@@ -112,3 +112,11 @@ if __name__ == '__main__':
                    title='Loss of Other Countries over Israel-Fitted model',
                    color='Country')
     pio.write_image(fig=fig_5, engine='orca', file='other_countries_loss_using_israel_fitted.png')
+    """
+    As expected from Q3, The loss over Jordan was the lowest of all 3 countries. Contrary to my prediction,
+    the loss over The Netherlands is actually higher than the loss over South Africa. I reckon this is because
+    the sum of differences is larger with The Netherlands than with South Africa (almost all months had a 10 deg. diff
+    at The Netherlands, not with South Africa).
+    Overall, as expected from a model that was trained only on Israel, 
+    its predictions were not as accurate over other countries.
+    """
