@@ -9,6 +9,7 @@ import plotly.express as px
 import plotly.io as pio
 
 pio.templates.default = "simple_white"
+global_columns = None  # Used for saving training columns
 
 
 def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
@@ -48,13 +49,15 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     X.loc[:, 'bath_bed_ratio'] = X.loc[:, 'bath_bed_ratio'].replace([np.inf, -np.inf], np.nan)
     X.loc[:, 'bath_bed_ratio'] = X['bath_bed_ratio'].fillna(0)
     X.drop(['date', 'id', 'lat', 'long', 'zipcode'], axis=1, inplace=True)  # non-linear data
-    # X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'condition', 'yr_built', 'sqft_lot15'],
     X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'yr_built', 'sqft_lot15'],
-           axis=1, inplace=True)  # non-correlating features
+           axis=1, inplace=True)  # dropping irrelevant columns
 
     if y is not None:
+        global global_columns
+        global_columns = X.drop('price', axis=1).columns  # saving train's columns
         return X.drop('price', axis=1), X.loc[:, 'price']
-    return X
+    else:
+        return X.reindex(columns=global_columns, fill_value=0)  # aligning test columns with train
 
 
 def dist_from_reference(lat, long):
@@ -136,7 +139,7 @@ def clean_df(df: pd.DataFrame) -> pd.DataFrame:
 if __name__ == '__main__':
     np.random.seed(0)
     df = pd.read_csv("../datasets/house_prices.csv")
-    # df = clean_df(df)
+    df = clean_df(df)
     # Question 1 - split data into train and test sets
     y = df['price']
     X = df.drop('price', axis=1)
@@ -145,7 +148,6 @@ if __name__ == '__main__':
     # Question 2 - Preprocessing of housing prices dataset
     train_X, train_y = preprocess_data(train_X, train_y)
     test_X = preprocess_data(test_X)
-    test_X = test_X.reindex(columns=train_X.columns, fill_value=0)
 
 
     # Question 3 - Feature evaluation with respect to response
