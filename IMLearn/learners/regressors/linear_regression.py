@@ -71,7 +71,7 @@ class LinearRegression(BaseEstimator):
             Predicted responses of given samples
         """
         if self.include_intercept_:
-            X = np.concatenate((np.ones(len(X)).reshape(len(X), 1), X), axis=1)
+            X = np.column_stack((np.ones(len(X)), X))
         return X @ self.coefs_
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:

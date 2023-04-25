@@ -28,22 +28,37 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     Post-processed design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
+    # type checking
+    numeric_cols = ['bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'waterfront', 'view', 'condition',
+                    'grade', 'sqft_above', 'sqft_basement', 'yr_built', 'yr_renovated', 'zipcode', 'lat', 'long',
+                    'sqft_living15', 'sqft_lot15']
+    X[numeric_cols] = X[numeric_cols].apply(pd.to_numeric, errors='coerce')
+
     # Only if in train
     if y is not None:
+        y = pd.to_numeric(y, errors='coerce')
+
+        # remove rows that can't be predicted (non-plausible/missing price)
         X.loc[:, 'price'] = y.loc[:]
+        X = X.dropna(subset=['price'])
+        X = X.drop(X[X.price < 0].index)
+
         # remove outliers
         X = X.drop(X[X.id == 0.0].index)
-        X = X.dropna().drop_duplicates()
         X = X.drop(X[X.bedrooms > 10].index)
-        X = X.drop(X[X.yr_built < 0].index)
+        X = X.drop(X[X.bedrooms < 0].index)
+        X = X.drop(X[X.bathrooms > 10].index)
+        X = X.drop(X[X.bathrooms < 0].index)
         X = X.drop(X[X.sqft_living > 10000].index)
+        X = X.drop(X[X.sqft_living < 0].index)
         X = X.drop(X[X.sqft_lot > 100000].index)
         X = X.drop(X[X.sqft_lot < 0].index)
+        X = X.dropna().drop_duplicates()
 
     # FEATURE ENGINEERING:
     one_hot_zipcode_df = pd.get_dummies(X['zipcode'], prefix='zipcode')
     X = X.join(one_hot_zipcode_df)
-    X.loc[:, 'dist_from_ref'] = X.apply(lambda row: dist_from_reference(row['lat'], row['long']), axis=1)
+    X['dist_from_ref'] = ''
     X.loc[:, 'dist_from_ref'] = X.apply(lambda row: dist_from_reference(row['lat'], row['long']), axis=1)
     X.loc[:, 'bath_bed_ratio'] = X['bathrooms'] / X['bedrooms']
     X.loc[:, 'bath_bed_ratio'] = X.loc[:, 'bath_bed_ratio'].replace([np.inf, -np.inf], np.nan)
@@ -51,6 +66,9 @@ def preprocess_data(X: pd.DataFrame, y: Optional[pd.Series] = None):
     X.drop(['date', 'id', 'lat', 'long', 'zipcode'], axis=1, inplace=True)  # non-linear data
     X.drop(['yr_renovated', 'sqft_lot', 'floors', 'waterfront', 'yr_built', 'sqft_lot15'],
            axis=1, inplace=True)  # dropping irrelevant columns
+
+    # make sure all NA's are accounted for
+    X = X.fillna(0)
 
     if y is not None:
         global global_columns
