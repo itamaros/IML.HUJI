@@ -134,17 +134,14 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series, output_path: str = ".") ->
     output_path: str (default ".")
         Path to folder in which plots are saved
     """
-    X = X.loc[:, ~(X.columns.str.contains('^zipcode_', case=False) |
-                   X.columns.str.contains('^is_renovated', case=False))]
+    X = X.loc[:, ~X.columns.str.contains('^zipcode_', case=False)]
     for feature in X:
         p_corr = np.cov(X[feature], y)[0][1] / (np.std(X[feature]) * np.std(y))
         fig = px.scatter(pd.DataFrame({'x': X[feature], 'y': y}), x='x', y='y',
                          labels={'x': f'{feature} value', 'y': 'Response values'}, trendline='ols',
                          trendline_color_override='black')
         _config_plot(fig, feature, p_corr)
-        # pio.write_html(fig, output_path + f"/pearson corr. {feature}" + ".html")  # all features
-        if feature in ['sqft_living', 'condition']:  # the features I chose to explain about
-            pio.write_image(fig, output_path + f"/pearson corr. {feature}" + ".png", engine='orca')
+        pio.write_html(fig, output_path + f"/pearson corr. {feature}" + ".html")
 
 
 def clean_df(df: pd.DataFrame) -> pd.DataFrame:
