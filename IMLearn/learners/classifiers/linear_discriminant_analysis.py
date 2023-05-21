@@ -54,7 +54,6 @@ class LDA(BaseEstimator):
         unbiased_est_factor = 1 / (len(X) - len(self.classes_))  # for unbiased estimator
         centered = X - self.mu_[y.astype(int)]
         self.cov_ = unbiased_est_factor * np.einsum("ki,kj->kij", centered, centered).sum(axis=0)
-        # self.cov_ = unbiased_est_factor * np.einsum("ki,kj->ij", centered, centered.transpose((1, 0)))
         self._cov_inv = inv(self.cov_)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
@@ -92,7 +91,6 @@ class LDA(BaseEstimator):
             raise ValueError("Estimator must first be fitted before calling `likelihood` function")
         a = 1 / (np.sqrt((2 * np.pi) ** X.shape[1] * det(self.cov_)))
         centered = X[:, np.newaxis, :] - self.mu_
-        # e_inner = np.sum(centered.dot(self._cov_inv) * centered, axis=2)
         e_inner = np.sum(centered @ self._cov_inv * centered, axis=2)
         n = a * np.exp(-0.5 * e_inner)
         return n * self.pi_

@@ -119,10 +119,12 @@ def compare_gaussian_classifiers():
         subs.add_traces([
             go.Scatter(x=X[:, 0], y=X[:, 1],
                        mode='markers',
-                       marker=dict(color=gnb_pred, symbol=class_symbols[y], colorscale=class_colors(3))),
+                       marker=dict(color=gnb_pred, symbol=class_symbols[y], colorscale=class_colors(3), size=10,
+                                   opacity=0.7)),
             go.Scatter(x=X[:, 0], y=X[:, 1],
                        mode='markers',
-                       marker=dict(color=lda_pred, symbol=class_symbols[y], colorscale=class_colors(3)))
+                       marker=dict(color=lda_pred, symbol=class_symbols[y], colorscale=class_colors(3), size=10,
+                                   opacity=0.7))
         ], rows=[1, 1], cols=[1, 2])
 
         # Add `X` dots specifying fitted Gaussians' means
@@ -136,7 +138,7 @@ def compare_gaussian_classifiers():
         ], rows=[1, 1], cols=[1, 2])
 
         # Add ellipses depicting the covariances of the fitted Gaussians
-        for i in range(3):
+        for i in range(len(gnb_model.mu_)):
             subs.add_traces([
                 get_ellipse(gnb_model.mu_[i], np.diag(gnb_model.vars_[i])),
                 get_ellipse(lda_model.mu_[i], lda_model.cov_)
