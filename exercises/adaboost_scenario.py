@@ -40,22 +40,81 @@ def generate_data(n: int, noise_ratio: float) -> Tuple[np.ndarray, np.ndarray]:
 
 def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000, test_size=500):
     (train_X, train_y), (test_X, test_y) = generate_data(train_size, noise), generate_data(test_size, noise)
-
     # Question 1: Train- and test errors of AdaBoost in noiseless case
-    raise NotImplementedError()
+    ada_ensemble = AdaBoost(DecisionStump, n_learners).fit(train_X, train_y)
+    train_error = [ada_ensemble.partial_loss(train_X, train_y, t) for t in range(1, n_learners + 1)]
+    test_error = [ada_ensemble.partial_loss(test_X, test_y, t) for t in range(1, n_learners + 1)]
+
+    loss_fig = go.Figure([go.Scatter(x=list(range(1, n_learners + 1)), y=train_error,
+                                     mode='lines', name='Train error'),
+                          go.Scatter(x=list(range(1, n_learners + 1)), y=test_error,
+                                     mode='lines', name='Test error')],
+                         layout=go.Layout(title='Adaboost Misclassification Errors as Function of Ensemble Size',
+                                          width=1000, height=500,
+                                          xaxis_title='Ensemble Size',
+                                          yaxis_title='Misclassification Error'))
+    loss_fig.write_html(f'adaboost_noise_{noise}_error.html')
 
     # Question 2: Plotting decision surfaces
-    T = [5, 50, 100, 250]
+    T = [5, 50, 100, 500]
     lims = np.array([np.r_[train_X, test_X].min(axis=0), np.r_[train_X, test_X].max(axis=0)]).T + np.array([-.1, .1])
-    raise NotImplementedError()
+    ensemble_size_fig = make_subplots(rows=1, cols=4, subplot_titles=[f'Ensemble Size - {t}' for t in T],
+                                      horizontal_spacing=0.01, vertical_spacing=.03)
+
+    colors = [0.0, 'rgb(235,38,38)'], [1.0, 'rgb(35,45,232)']
+
+    for i, t in enumerate(T):
+        ensemble_size_fig.add_traces([
+            decision_surface(lambda X: ada_ensemble.partial_predict(X, t), lims[0], lims[1], density=60,
+                             showscale=False),
+            go.Scatter(x=test_X[:, 0], y=test_X[:, 1], mode='markers', showlegend=False,
+                       marker=dict(color=test_y, symbol=np.where(test_y == 1, 'x', 'circle'),
+                                   colorscale=[colors[0], colors[1]],
+                                   line=dict(color='black', width=1)))
+        ],
+            rows=1, cols=i + 1)
+
+    ensemble_size_fig.update_layout(title=f'Adaboost Decision Boundaries of Different Ensemble Sizes, Noise {noise}',
+                                    height=500, width=2000,
+                                    margin=dict(t=100)).update_xaxes(visible=False).update_yaxes(visible=False)
+    ensemble_size_fig.write_html(f'adaboost_noise_{noise}_decision_boundary.html')
 
     # Question 3: Decision surface of best performing ensemble
-    raise NotImplementedError()
+    best_ensemble_size = np.argmin(test_error) + 1
+    best_ensemble_fig = go.Figure([
+        decision_surface(lambda X: ada_ensemble.partial_predict(X, best_ensemble_size), lims[0], lims[1], density=60,
+                         showscale=False),
+        go.Scatter(x=test_X[:, 0], y=test_X[:, 1], mode='markers', showlegend=False,
+                   marker=dict(color=test_y, symbol=np.where(test_y == 1, 'x', 'circle'),
+                               colorscale=[colors[0], colors[1]],
+                               line=dict(color='black', width=1)))],
+    )
+
+    from IMLearn.metrics.loss_functions import accuracy
+    best_size_accuracy = accuracy(test_y, ada_ensemble.partial_predict(test_X, best_ensemble_size))
+
+    best_ensemble_fig.update_layout(title=f'Best Adaboost Ensemble<br>'
+                                          f'Size: {best_ensemble_size}, '
+                                          f'Accuracy: {np.round(best_size_accuracy, 2)}',
+                                    height=500, width=500,
+                                    margin=dict(t=100)).update_xaxes(visible=False).update_yaxes(visible=False)
+    best_ensemble_fig.write_html(f'adaboost_best_ensemble_{noise}_noise_over_test.html')
 
     # Question 4: Decision surface with weighted samples
-    raise NotImplementedError()
+    D = ada_ensemble.D_ / np.max(ada_ensemble.D_) * 20
+    t_ensemble_fig = go.Figure([
+        decision_surface(ada_ensemble.predict, lims[0], lims[1], density=60, showscale=False),
+        go.Scatter(x=train_X[:, 0], y=train_X[:, 1], mode='markers', showlegend=False,
+                   marker=dict(color=train_y, symbol=np.where(train_y == 1, 'x', 'circle'),
+                               colorscale=[colors[0], colors[1]], size=D))],
+    )
+    t_ensemble_fig.update_layout(title=f'Last Adaboost Ensemble Size ({n_learners}) with Weighted Distribution',
+                                 height=750, width=750,
+                                 margin=dict(t=100)).update_xaxes(visible=False).update_yaxes(visible=False)
+    t_ensemble_fig.write_html(f'adaboost_last_iteration_{noise}_noise_weighted_distribution.html')
 
 
 if __name__ == '__main__':
     np.random.seed(0)
-    raise NotImplementedError()
+    for noise in [0, 0.4]:
+        fit_and_evaluate_adaboost(noise=noise, n_learners=250, train_size=5000, test_size=500)
