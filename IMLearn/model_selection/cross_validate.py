@@ -43,12 +43,6 @@ def cross_validate(estimator: BaseEstimator, X: np.ndarray, y: np.ndarray,
     # split into folds
     ids = np.arange(X.shape[0])
 
-    # # shuffle data TODO resolve why messing things up
-    # indices = np.arange(X.shape[0])
-    # np.random.shuffle(indices)
-    # X, y = X[indices], y[indices]
-    # print(X)
-
     folds = np.array_split(ids, cv)
 
     for validation_ids in folds:

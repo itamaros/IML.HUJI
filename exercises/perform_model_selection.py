@@ -51,7 +51,10 @@ def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 50
     """
     # Question 1 - Load diabetes dataset and split into training and testing portions
     X, y = datasets.load_diabetes(return_X_y=True)
-    # X_train, y_train, X_test, y_test = tts(X, y, test_size=n_samples, random_state=0)
+    # shuffle indices:
+    indices = np.arange(X.shape[0])
+    np.random.shuffle(indices)
+    X, y = X[indices], y[indices]
     X_train, y_train, X_test, y_test = X[:n_samples], y[:n_samples], X[n_samples:], y[n_samples:]
 
     # Question 2 - Perform CV for different values of the regularization parameter for Ridge and Lasso regressions
@@ -63,7 +66,7 @@ def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 50
 
     for i, (ridge_lam, lasso_lam) in enumerate(zip(ridge_lambdas, lasso_lambdas)):
         ridge = RidgeRegression(ridge_lam)
-        lasso = Lasso(lasso_lam, max_iter=5000)
+        lasso = Lasso(lasso_lam, max_iter=10000)
         ridge_scores[i] = cross_validate(ridge, X_train, y_train, mean_square_error, cv=cv_number)
         lasso_scores[i] = cross_validate(lasso, X_train, y_train, mean_square_error, cv=cv_number)
 
@@ -89,11 +92,11 @@ def select_regularization_parameter(n_samples: int = 50, n_evaluations: int = 50
     print(f'\tRidge: {np.round(best_ridge_lam, 5)}')
     print(f'\tLasso: {np.round(best_lasso_lam, 5)}')
     print(f'Test errors over test set:')
-    print(f'\tLest Squares: {np.round(ls_loss, 2)}')
+    print(f'\tOLS: {np.round(ls_loss, 2)}')
     print(f'\tRidge: {np.round(ridge_loss, 2)}')
     print(f'\tLasso: {np.round(lasso_loss, 2)}')
 
 
 if __name__ == '__main__':
     np.random.seed(0)
-    select_regularization_parameter()
+    select_regularization_parameter(50, 500)
