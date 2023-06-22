@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import itertools
 from typing import Tuple, List, Callable, Type
 
 from IMLearn import BaseModule
@@ -73,25 +74,67 @@ def get_gd_state_recorder_callback() -> Tuple[Callable[[], None], List[np.ndarra
     weights: List[np.ndarray]
         Recorded parameters
     """
-    raise NotImplementedError()
+    values = []
+    weights_lst = []
+    deltas = []
+
+    def callback(solver, weights, val, grad, t, eta, delta):
+        values.append(val)
+        weights_lst.append(weights)
+        deltas.append(delta)
+
+    return callback, values, weights_lst, deltas
 
 
 def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e / 3]),
                                  etas: Tuple[float] = (1, .1, .01, .001)):
-    raise NotImplementedError()
+    norm_dict = {L1: "L1", L2: "L2"}
+    losses = {"L1": [], "L2": []}
+
+    for eta, l in itertools.product(etas, [L1, L2]):
+        callback, values, weights, deltas = get_gd_state_recorder_callback()
+        GradientDescent(learning_rate=FixedLR(eta), callback=callback).fit(l(init), None, None)
+
+        # Q1 - Plotting descent paths for each setting:
+        trajectory_fig = plot_descent_path(l, np.array(weights), title=f"Norm = {norm_dict[l]}, Step(η) = {eta}.")
+        trajectory_fig.write_html(f'GD_{norm_dict[l]}_{eta}.html')
+
+        # Q3 - Plotting the convergence rate for each setting:
+        norm_fig = go.Figure(go.Scatter(x=np.linspace(0, len(deltas)-1, len(deltas)),
+                                            y=deltas, mode="lines+markers"))
+        norm_fig.update_layout(title=f"Learning as function of GD iteration with. step (η)={eta}, norm={norm_dict[l]}.")
+        norm_fig.write_html(f'GD_{norm_dict[l]}_{eta}_norm.html')
+
+        # Q4 - Accumulating losses for each setting:
+        losses[norm_dict[l]].append(min(values))
+
+    # Q4 - Printing the lowest loss achieved for each setting:
+    print(f"The lowest loss achieved when minimizing L1 is: ", np.round(min(losses["L1"]), 9))
+    print(f"The lowest loss achieved when minimizing L2 is: ", np.round(min(losses["L2"]), 9))
 
 
 def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.e / 3]),
                                     eta: float = .1,
                                     gammas: Tuple[float] = (.9, .95, .99, 1)):
     # Optimize the L1 objective using different decay-rate values of the exponentially decaying learning rate
-    raise NotImplementedError()
+    l1_fig = go.Figure()
+    for gamma in gammas:
+        callback, values, weights, deltas = get_gd_state_recorder_callback()
+        GradientDescent(learning_rate=ExponentialLR(eta, gamma), callback=callback).fit(L1(init), None, None)
+        l1_fig.add_trace(go.Scatter(x=np.linspace(0, len(deltas)-1, len(deltas)),
+                                    y=deltas, mode="lines+markers"))
+        # Q6 - Lowest loss achieved using the exponential decay function:
+        print(f"The lowest loss achieved when minimizing L1 using gamma={gamma} is: ", min(values))
 
-    # Plot algorithm's convergence for the different values of gamma
-    raise NotImplementedError()
+    # Q5 - Plot algorithm's convergence for the different values of gamma
+    l1_fig.update_layout(title=f"Convergence rate for all decay rates. step (η)={eta}, norm=L1.")
+    l1_fig.write_html(f'GD_L1_{eta}_exp_decay.html')
 
-    # Plot descent path for gamma=0.95
-    raise NotImplementedError()
+    # Q7 - Plot descent path for gamma=0.95
+    callback, values, weights, norms = get_gd_state_recorder_callback()
+    GradientDescent(ExponentialLR(eta, gammas[1]), callback=callback).fit(L1(init), None, None)
+    trajectory_fig = plot_descent_path(L1, np.array(weights), title=f"Norm = L1, Step(η) = {eta}, gamma=0.95.")
+    trajectory_fig.write_html(f'GD_L1_{eta}_exp_decay_gamma_0.95.html')
 
 
 def load_data(path: str = "../datasets/SAheart.data", train_portion: float = .8) -> \

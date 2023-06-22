@@ -39,6 +39,7 @@ class GradientDescent:
         Callable function receives as input any argument relevant for the current GD iteration. Arguments
         are specified in the `GradientDescent.fit` function
     """
+
     def __init__(self,
                  learning_rate: BaseLR = FixedLR(1e-3),
                  tol: float = 1e-5,
@@ -119,4 +120,37 @@ class GradientDescent:
                 Euclidean norm of w^(t)-w^(t-1)
 
         """
-        raise NotImplementedError()
+        w = f.weights
+        weight_list = [w]
+        if self.out_type_ == "best":
+            loss_list = [f.compute_output(X=X, y=y)]
+        output_dict = {OUTPUT_VECTOR_TYPE[0]: lambda x: x[-1],
+                       OUTPUT_VECTOR_TYPE[1]: lambda x: x[np.argmin(loss_list)],
+                       OUTPUT_VECTOR_TYPE[2]: lambda x: np.mean(x, axis=0)}
+
+        for t in range(self.max_iter_):
+            # calculate step size and direction:
+            eta = self.learning_rate_.lr_step(t=t)
+            gradient = f.compute_jacobian(X=X, y=y)
+
+            w_next_t = w - eta * gradient  # update weights
+            delta = np.linalg.norm(w - w_next_t, ord=2)  # calculate delta from previous weights for convergence check
+
+            # record current setup in callback function:
+            self.callback_(solver=self, weights=w, val=f.compute_output(X=X, y=y), grad=gradient, t=t, eta=eta, delta=delta)
+
+            # f.weights(w_next_t) # update solution's weights
+            f.weights_ = w_next_t
+            weight_list.append(w_next_t)  # accumulate weights
+
+            # save loss (if needed):
+            if self.out_type_ == 'best':
+                loss_list.append(f.compute_output(X=X, y=y))  # save loss for best solution
+
+            w = w_next_t  # update loop weights
+            # check if convergence has been reached:
+            if delta < self.tol_:
+                break
+
+        # return solution according to specified output type:
+        return output_dict[self.out_type_](weight_list)
