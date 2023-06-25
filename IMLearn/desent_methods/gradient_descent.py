@@ -120,37 +120,40 @@ class GradientDescent:
                 Euclidean norm of w^(t)-w^(t-1)
 
         """
-        w = f.weights
-        weight_list = [w]
-        if self.out_type_ == "best":
-            loss_list = [f.compute_output(X=X, y=y)]
-        output_dict = {OUTPUT_VECTOR_TYPE[0]: lambda x: x[-1],
-                       OUTPUT_VECTOR_TYPE[1]: lambda x: x[np.argmin(loss_list)],
-                       OUTPUT_VECTOR_TYPE[2]: lambda x: np.mean(x, axis=0)}
+        w_sum = f.weights
+        w_best = f.weights
+        total_iterations = 1
+        best_output = np.inf
 
         for t in range(self.max_iter_):
+            total_iterations += 1
+
             # calculate step size and direction:
-            eta = self.learning_rate_.lr_step(t=t)
+            eta = self.learning_rate_.lr_step()
             gradient = f.compute_jacobian(X=X, y=y)
 
-            w_next_t = w - eta * gradient  # update weights
-            delta = np.linalg.norm(w - w_next_t, ord=2)  # calculate delta from previous weights for convergence check
+            w_next = f.weights - eta * gradient  # update weights
+            delta = np.linalg.norm(w_next - f.weights)  # calculate delta from previous weights for convergence check
+
+            f.weights = w_next  # update solution's weights
+            output = f.compute_output(X=X, y=y)  # calculate output at current point
+
+            # accumulate weights for average solution:
+            w_sum += w_next
+
+            # save the best solution:
+            if output < best_output:
+                best_output = output
+                w_best = w_next
 
             # record current setup in callback function:
-            self.callback_(solver=self, weights=w, val=f.compute_output(X=X, y=y), grad=gradient, t=t, eta=eta, delta=delta)
+            self.callback_(solver=self, weights=f.weights, val=output, grad=gradient,
+                           t=t, eta=eta, delta=delta)
 
-            # f.weights(w_next_t) # update solution's weights
-            f.weights_ = w_next_t
-            weight_list.append(w_next_t)  # accumulate weights
-
-            # save loss (if needed):
-            if self.out_type_ == 'best':
-                loss_list.append(f.compute_output(X=X, y=y))  # save loss for best solution
-
-            w = w_next_t  # update loop weights
             # check if convergence has been reached:
-            if delta < self.tol_:
+            if delta <= self.tol_:
                 break
 
         # return solution according to specified output type:
-        return output_dict[self.out_type_](weight_list)
+        out_list = np.array([f.weights, w_best, w_sum / total_iterations])
+        return out_list[np.array(OUTPUT_VECTOR_TYPE) == self.out_type_][0]
