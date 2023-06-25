@@ -120,7 +120,7 @@ class GradientDescent:
                 Euclidean norm of w^(t)-w^(t-1)
 
         """
-        w_sum = f.weights
+        w_sum = np.array(f.weights)
         w_best = f.weights
         total_iterations = 1
         best_output = np.inf
@@ -129,7 +129,7 @@ class GradientDescent:
             total_iterations += 1
 
             # calculate step size and direction:
-            eta = self.learning_rate_.lr_step()
+            eta = self.learning_rate_.lr_step(t=t)
             gradient = f.compute_jacobian(X=X, y=y)
 
             w_next = f.weights - eta * gradient  # update weights

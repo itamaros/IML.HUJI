@@ -94,15 +94,15 @@ def get_gd_state_recorder_callback() -> Tuple[Callable[[], None], List[np.ndarra
 
 def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e / 3]),
                                  etas: Tuple[float] = (1, .1, .01, .001)):
-    norm_dict = {L1: "L1", L2: "L2"}
-    losses = {"L1": [], "L2": []}
+    norm_dict = {L1: "l1", L2: "l2"}
+    losses = {"l1": [], "l2": []}
 
     for eta, l in itertools.product(etas, [L1, L2]):
-        callback, values, weights, deltas = get_gd_state_recorder_callback()
+        callback, values, weights_lst, deltas = get_gd_state_recorder_callback()
         GradientDescent(learning_rate=FixedLR(eta), callback=callback).fit(l(init), None, None)
 
         # Q1 - Plotting descent paths for each setting:
-        trajectory_fig = plot_descent_path(l, np.array(weights), title=f"Norm = {norm_dict[l]}, Step(η) = {eta}.")
+        trajectory_fig = plot_descent_path(l, np.array(weights_lst), title=f"Norm = {norm_dict[l]}, Step(η) = {eta}.")
         trajectory_fig.write_html(f'GD_{norm_dict[l]}_{eta}.html')
 
         # Q3 - Plotting the convergence rate for each setting:
@@ -116,8 +116,8 @@ def compare_fixed_learning_rates(init: np.ndarray = np.array([np.sqrt(2), np.e /
         losses[norm_dict[l]].append(min(values))
 
     # Q4 - Printing the lowest loss achieved for each setting:
-    print(f"The lowest loss achieved when minimizing L1 is: ", np.round(min(losses["L1"]), 9))
-    print(f"The lowest loss achieved when minimizing L2 is: ", np.round(min(losses["L2"]), 9))
+    print(f"The lowest loss achieved when minimizing L1 is: ", np.round(min(losses["l1"]), 9))
+    print(f"The lowest loss achieved when minimizing L2 is: ", np.round(min(losses["l2"]), 9))
 
 
 def compare_exponential_decay_rates(init: np.ndarray = np.array([np.sqrt(2), np.e / 3]),
