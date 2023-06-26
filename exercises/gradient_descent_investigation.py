@@ -187,6 +187,7 @@ def fit_logistic_regression():
     y_prob = model.predict_proba(np.array(X_test))
     fpr, tpr, thresholds = roc_curve(y_test, y_prob)
     best_alpha = thresholds[np.argmax(tpr - fpr)]
+    model.alpha_ = best_alpha
 
     roc = go.Figure(data=[
         go.Scatter(x=[0, 1], y=[0, 1],
