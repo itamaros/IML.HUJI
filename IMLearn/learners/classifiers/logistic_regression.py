@@ -85,7 +85,7 @@ class LogisticRegression(BaseEstimator):
 
         Notes
         -----
-        Fits model using specified `self.optimizer_` passed when instantiating class and includes an intercept
+        Fits model using specified `self.solver_` passed when instantiating class and includes an intercept
         if specified by `self.include_intercept_
         """
         if self.include_intercept_:
